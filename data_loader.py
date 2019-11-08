@@ -41,7 +41,7 @@ def get_dir_loader(image_path, image_size, batch_size, num_workers=2):
                     # transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
     ])
     
-    dataset = dss.ImageFolder(image_path, transform=transform)
+    dataset = ImageFolder(image_path, transform=transform)
     data_loader = data.DataLoader(dataset=dataset,
                                   batch_size=batch_size,
                                   shuffle=True,

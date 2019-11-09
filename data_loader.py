@@ -15,9 +15,13 @@ class ImageFolder(data.Dataset):
     
     This is just for tutorial. You can use the prebuilt torchvision.datasets.ImageFolder.
     """
-    def __init__(self, root, transform=None):
+    def __init__(self, root, train, transform=None):
         """Initializes image paths and preprocessing module."""
         self.image_paths = list(map(lambda x: os.path.join(root, x), os.listdir(root)))
+        if train:
+            self.image_paths = list(filter(lambda x: 'test_' in x, self.image_paths))
+        else:
+            self.image_paths = list(filter(lambda x: 'test_' in x, self.image_paths))
         self.transform = transform
         
     def __getitem__(self, index):
@@ -30,10 +34,10 @@ class ImageFolder(data.Dataset):
     
     def __len__(self):
         """Returns the total number of image files."""
-        return len(self.image_paths)
+        return len(list(self.image_paths))
 
     
-def get_dir_loader(image_path, image_size, batch_size, num_workers=2):
+def get_dir_loader(image_path, image_size, batch_size, train=True, num_workers=2):
     """Builds and returns Dataloader."""
     transform = transforms.Compose([
                     transforms.Scale(image_size),
@@ -41,7 +45,7 @@ def get_dir_loader(image_path, image_size, batch_size, num_workers=2):
                     # transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
     ])
     
-    dataset = ImageFolder(image_path, transform=transform)
+    dataset = ImageFolder(image_path, train, transform=transform)
     data_loader = data.DataLoader(dataset=dataset,
                                   batch_size=batch_size,
                                   shuffle=True,

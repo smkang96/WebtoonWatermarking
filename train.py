@@ -25,7 +25,7 @@ img_size = (256, 256)
 pix_num = img_size[0] * img_size[1]
 batch_size = 32
 epoch_num = 200
-img_path = '' # to model natural cartoon img
+img_path = '../yumi_data/yumi/_target/' # to model natural cartoon img
 test_path = './samples/'
 model_dir = './model/'
 model_name = '%d_yumi_%s.pth'
@@ -57,8 +57,8 @@ for e_idx in range(epoch_num):
         # enc training #
         watermarks = enc(enc_uids.view(-1, 31, 1, 1))
         g_loss_l2 = torch.mean(watermarks**2)
-        new_img = norm_img + watermarks 
-        recov_enc_uids = dec(new_img) # TODO: add noise to dec
+        new_img = norm_img + watermarks + 0.2*torch.randn(watermarks.size()).cuda()
+        recov_enc_uids = dec(new_img)
         ce_loss = -(enc_uids * (recov_enc_uids + 1e-5).log() + 
                     (1-enc_uids) * ((1-recov_enc_uids) + 1e-5).log())
         g_loss_d = torch.mean(ce_loss)
@@ -69,7 +69,7 @@ for e_idx in range(epoch_num):
 
         # dec training #
         watermarks = enc(enc_uids.view(-1, 31, 1, 1))
-        new_img = norm_img + watermarks
+        new_img = norm_img + watermarks + 0.2*torch.randn(watermarks.size()).cuda()
         recov_enc_uids = dec(new_img)
         ce_loss = -(enc_uids * (recov_enc_uids + 1e-5).log() + 
                     (1-enc_uids) * ((1-recov_enc_uids) + 1e-5).log())
@@ -105,4 +105,4 @@ for e_idx in range(epoch_num):
         torch.save(enc.state_dict(), enc_path_name)
         dec_path_name = model_path % (e_idx+1, 'dec')
         torch.save(dec.state_dict(), dec_path_name)
-        print(f'Model saved to {new_path_name}')
+        print(f'Models saved')

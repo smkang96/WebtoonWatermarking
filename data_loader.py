@@ -19,7 +19,7 @@ class ImageFolder(data.Dataset):
         """Initializes image paths and preprocessing module."""
         self.image_paths = list(map(lambda x: os.path.join(root, x), os.listdir(root)))
         if train:
-            self.image_paths = list(filter(lambda x: 'test_' in x, self.image_paths))
+            self.image_paths = list(filter(lambda x: 'test_' not in x, self.image_paths))
         else:
             self.image_paths = list(filter(lambda x: 'test_' in x, self.image_paths))
         self.transform = transform

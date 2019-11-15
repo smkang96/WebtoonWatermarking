@@ -4,7 +4,7 @@ from torch.utils.data import DataLoader
 
 from data.watermark import Watermark
 from net import Hidden
-import path
+import common.path as path
 
 
 log_filename = './test.log'

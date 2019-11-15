@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 
 from data.watermark import Watermark, denormalize
 from net import Hidden
-import path
+import common.path as path
 
 
 save_dir = './examples'

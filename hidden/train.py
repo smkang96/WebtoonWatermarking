@@ -7,7 +7,7 @@ from tqdm import trange
 
 from data.watermark import Watermark
 from net import Hidden
-import path
+import common.path as path
 from test import test_worker
 
 

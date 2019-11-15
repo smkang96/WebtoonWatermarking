@@ -23,7 +23,6 @@ modes = {
 parser, subparsers = make_parser(modes)
 
 for mode, subparser in subparsers.items():
-    subparser.add_argument('--img_dir', type=str)
     subparser.add_argument('--img_size', type=int)
     subparser.add_argument('--msg_l', type=int)
     subparser.add_argument('--device', type=int)

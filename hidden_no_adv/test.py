@@ -32,7 +32,7 @@ class HiddenTest(Hidden):
 def test_worker(args, queue):
     log_file = open(log_filename, 'w+', buffering=1)
 
-    dataset = Watermark(args.img_dir, args.img_size, args.msg_l, train=False)
+    dataset = Watermark(args.img_size, args.msg_l, train=False)
     net = HiddenTest(args, dataset).to(args.device)
     loader = DataLoader(dataset=dataset, batch_size=args.batch_size, shuffle=False)
     
@@ -60,7 +60,7 @@ def test_worker(args, queue):
         queue.task_done()
 
 def test(args):
-    dataset = Watermark(args.img_dir, args.img_size, args.msg_l, train=False)
+    dataset = Watermark(args.img_size, args.msg_l, train=False)
     net = HiddenTest(args, dataset).to(args.device)
     loader = DataLoader(dataset=dataset, batch_size=args.batch_size, shuffle=False)
     

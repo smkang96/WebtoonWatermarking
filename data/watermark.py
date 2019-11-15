@@ -15,7 +15,8 @@ def denormalize(img):
 
 
 class Watermark(data.Dataset):
-    def __init__(self, img_dir, img_size, msg_l, train):
+    def __init__(self, img_size, msg_l, train):
+        img_dir = os.environ['YUMI_DIR']
         self.w, self.h = img_size, img_size
         self.l = msg_l
 

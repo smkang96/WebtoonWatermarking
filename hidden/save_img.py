@@ -18,7 +18,7 @@ save_dir = './examples'
 def save_img(args):
     if not os.path.exists(save_dir):
         os.mkdir(save_dir)
-    dataset = Watermark(args.img_dir, args.img_size, args.msg_l, train=False)
+    dataset = Watermark(args.img_size, args.msg_l, train=False)
     net = Hidden(args, dataset).to(args.device)
     loader = DataLoader(dataset=dataset, batch_size=args.n_imgs, shuffle=False)
     

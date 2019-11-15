@@ -66,7 +66,7 @@ def train(args):
     test_process, queue = start_test_process(args)
     log_file = open(log_filename, 'w+', buffering=1)
 
-    dataset = Watermark(args.img_dir, args.img_size, args.msg_l, train=True)
+    dataset = Watermark(args.img_size, args.msg_l, train=True)
     net = HiddenTrain(args, dataset).to(args.device)
     loader = DataLoader(dataset=dataset, batch_size=args.batch_size, shuffle=True)
 

@@ -14,9 +14,9 @@ Before you run the scripts, you may need following steps.
 
 - Download data from http://namsan.me/file/yumi.tar and untar
 - Set environment variables
-`
+```
 cp env.sh.template env.sh
 # edit env.sh
 source env.sh  # add it to bashrc to be permanent
-`
+```
 

@@ -26,6 +26,7 @@ for mode, subparser in subparsers.items():
     subparser.add_argument('--img_size', type=int)
     subparser.add_argument('--msg_l', type=int)
     subparser.add_argument('--device', type=int)
+    subparser.add_argument('--test_device', type=int)
     subparser.add_argument('--batch_size', type=int)
     subparser.add_argument('--noise_type', type=str)
 
@@ -43,5 +44,9 @@ for mode, subparser in subparsers.items():
         subparser.add_argument('--n_imgs', type=int)
 
 args = parser.parse_args()
+
+if args.test_device is None:
+    args.test_device = args.device
+
 args.func(args)
 

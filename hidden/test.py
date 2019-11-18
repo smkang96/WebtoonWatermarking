@@ -38,7 +38,7 @@ def test_worker(args, queue):
     log_file = open(log_filename, 'w+', buffering=1)
 
     dataset = Watermark(args.img_size, args.msg_l, train=False)
-    net = HiddenTest(args, dataset).to(args.device)
+    net = HiddenTest(args, dataset).to(args.test_device)
     loader = DataLoader(dataset=dataset, batch_size=args.batch_size, shuffle=False)
     
     while True:
@@ -55,7 +55,7 @@ def test_worker(args, queue):
 
         with torch.no_grad():
             for img, msg in loader:
-                img, msg = img.to(args.device), msg.to(args.device)
+                img, msg = img.to(args.test_device), msg.to(args.test_device)
                 batch_stats = net.stats(img, msg)
                 for k in stats:
                     stats[k] += len(img) * batch_stats[k]
@@ -68,7 +68,7 @@ def test_worker(args, queue):
 
 def test(args):
     dataset = Watermark(args.img_size, args.msg_l, train=False)
-    net = HiddenTest(args, dataset).to(args.device)
+    net = HiddenTest(args, dataset).to(args.test_device)
     loader = DataLoader(dataset=dataset, batch_size=args.batch_size, shuffle=False)
     
     net.load_state_dict(torch.load(path.save_path))
@@ -83,7 +83,7 @@ def test(args):
 
     with torch.no_grad():
         for img, msg in loader:
-            img, msg = img.to(args.device), msg.to(args.device)
+            img, msg = img.to(args.test_device), msg.to(args.test_device)
             batch_stats = net.stats(img, msg)
             for k in stats:
                 stats[k] += len(img) * batch_stats[k]

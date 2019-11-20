@@ -1,4 +1,4 @@
-from multiprocessing import Process, Queue
+from multiprocessing import Process, JoinableQueue
 
 import torch
 import torch.nn.functional as F
@@ -43,7 +43,7 @@ class HiddenTrain(Hidden):
 
 
 def start_test_process(args):
-    queue = Queue()
+    queue = JoinableQueue()
     test_process = Process(target=test_worker, args=(args, queue))
     test_process.start()
 
@@ -74,5 +74,5 @@ def train(args):
 
     log_file.close()
     queue.join()
-    test_process.kill()
+    test_process.terminate()
 

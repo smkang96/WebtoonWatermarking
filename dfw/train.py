@@ -51,7 +51,7 @@ class DFWTrain(DFW):
 
         enc_loss = torch.norm(watermark, p=2, dim=(1, 2, 3)).mean()
         dec_loss = F.binary_cross_entropy_with_logits(decoded_msg, msg)
-        loss = self.enc_scale*enc_loss + self.dec_scale*dec_loss
+        loss = enc_scale*enc_loss + self.dec_scale*dec_loss
 
         self.optimizer.zero_grad()
         loss.backward()

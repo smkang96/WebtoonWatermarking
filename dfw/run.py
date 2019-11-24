@@ -11,7 +11,7 @@ def make_parser(modes):
 
     return parser, subparsers.choices
 
-from train import pretrain, train
+from train_with_eval import pretrain, train
 from test import test
 from save_img import save_img
 

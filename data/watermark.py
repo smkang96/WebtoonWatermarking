@@ -15,16 +15,22 @@ def denormalize(img):
 
 
 class Watermark(data.Dataset):
-    def __init__(self, img_size, msg_l, train):
+    def __init__(self, img_size, msg_l, train, dev):
         img_dir = os.environ['YUMI_DIR']
         self.w, self.h = img_size, img_size
         self.l = msg_l
 
-        self.img_paths = list(map(lambda x: os.path.join(img_dir, x), os.listdir(img_dir)))
         if train:
-            self.img_paths = list(filter(lambda x: 'test_' not in x, self.img_paths))
+            img_dir += 'train/'
+            self.img_paths = list(map(lambda x: os.path.join(img_dir, x), os.listdir(img_dir)))
+        elif dev:
+            img_dir += 'dev/'
+            self.img_paths = list(map(lambda x: os.path.join(img_dir, x), os.listdir(img_dir)))
         else:
-            self.img_paths = list(filter(lambda x: 'test_' in x, self.img_paths))
+            img_dir += 'test/'
+            self.img_paths = list(map(lambda x: os.path.join(img_dir, x), os.listdir(img_dir)))
+        
+        self.img_paths = list(filter(lambda x: 'jpg' in x, self.img_paths))
 
         self.transform = transforms.Compose([
             transforms.Resize(img_size),

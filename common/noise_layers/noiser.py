@@ -1,8 +1,6 @@
 import numpy as np
 import torch.nn as nn
-from .identity import Identity
-from .jpeg_compression import JpegCompression
-from .quantization import Quantization
+from . import Identity, Crop, Cropout, Dropout, Resize, JpegCompression, Quantization
 
 
 class Noiser(nn.Module):
@@ -21,11 +19,17 @@ class Noiser(nn.Module):
         elif noise_type == 'combined':
             self.noise_layers.append(Crop((0.4, 0.55),(0.4, 0.55)))
             self.noise_layers.append(Cropout((0.25, 0.35),(0.25, 0.35)))
-            self.noise_layers.append(Dropout(0.25, 0.03))
-            self.noise_layers.append(Resize(0.4, 0.6))
+            self.noise_layers.append(Dropout((0.25, 0.35)))
+            self.noise_layers.append(Resize((0.4, 0.6)))
             self.noise_layers.append(JpegCompression())
         else:
-            raise NotImplementedError             
+            raise NotImplementedError 
+
+    def to(self, device):
+        for module in self.noise_layers:
+            if type(module) == JpegCompression:
+                module.to(device)
+        return super().to(device)
 
     def forward(self, encoded_and_cover):
         random_noise_layer = np.random.choice(self.noise_layers, 1)[0]

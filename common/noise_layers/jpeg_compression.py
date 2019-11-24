@@ -63,13 +63,13 @@ def yuv2rgb(image_yuv, image_rgb_out):
 
 
 class JpegCompression(nn.Module):
-    def __init__(self, device, yuv_keep_weights = (25, 9, 9)):
+    def __init__(self, yuv_keep_weights = (25, 9, 9)):
         super(JpegCompression, self).__init__()
-        self.device = device
 
-        self.dct_conv_weights = torch.tensor(gen_filters(8, 8, dct_coeff), dtype=torch.float32).to(self.device)
+        self.device = None
+        self.dct_conv_weights = torch.tensor(gen_filters(8, 8, dct_coeff), dtype=torch.float32)
         self.dct_conv_weights.unsqueeze_(1)
-        self.idct_conv_weights = torch.tensor(gen_filters(8, 8, idct_coeff), dtype=torch.float32).to(self.device)
+        self.idct_conv_weights = torch.tensor(gen_filters(8, 8, idct_coeff), dtype=torch.float32)
         self.idct_conv_weights.unsqueeze_(1)
 
         self.yuv_keep_weighs = yuv_keep_weights
@@ -80,6 +80,11 @@ class JpegCompression(nn.Module):
         # create a new large mask which we can use by slicing for images which are smaller
         self.create_mask((1000, 1000))
 
+    def to(self, device):
+        self.device = device
+        self.dct_conv_weights = self.dct_conv_weights.to(device)
+        self.idct_conv_weights = self.idct_conv_weights.to(device)
+        self.jpeg_mask = self.jpeg_mask.to(device)
 
     def create_mask(self, requested_shape):
         if self.jpeg_mask is None or requested_shape > self.jpeg_mask.shape[1:]:

@@ -160,3 +160,5 @@ def train(args):
                 torch.save(net.state_dict(), path.save_path)
                 valid_loss_min = valid_loss
     log_file.close()
+    queue.join()
+    test_process.terminate()

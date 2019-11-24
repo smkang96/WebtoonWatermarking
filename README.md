@@ -12,7 +12,7 @@ Pre-defined run scripts are in exps dir.
 
 Before you run the scripts, you may need following steps.
 
-- Download data from http://namsan.me/file/yumi.tar and untar
+- Download data from https://drive.google.com/open?id=1EuXrcAlzXQwqb1EDTNh2Xsw3EYJL5ne3 and unzip
 - Set environment variables
 ```
 cp env.sh.template env.sh

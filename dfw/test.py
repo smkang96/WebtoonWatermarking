@@ -21,7 +21,7 @@ class DFWTest(DFW):
 
         watermark = self.encoder(msg)
         encoded_img = (img + watermark).clamp(-1, 1)
-        noised_img = self.noiser(encoded_img)
+        noised_img, _ = self.noiser([encoded_img, img])
         decoded_msg = self.decoder(noised_img)
 
         enc_loss = torch.norm(watermark, p=2, dim=(1, 2, 3)).mean()

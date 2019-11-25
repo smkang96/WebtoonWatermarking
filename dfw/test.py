@@ -103,5 +103,4 @@ def test(args):
 
     for k in stats:
         stats[k] = stats[k] / len(dataset)
-
-    print(" ".join([f"{k}: {v:.3f}"for k, v in stats.items()]))
+    print("Noise type: ", args.noise_type, " ".join([f"{k}: {v:.3f}"for k, v in stats.items()]))

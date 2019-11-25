@@ -20,18 +20,19 @@ class DFWTest(DFW):
         
     def stats(self, img, msg):
         self.eval()
-        msg = torch.stack([self.hamming_coder.encode(x) for x in msg])
-        watermark = self.encoder(msg)
+        hamming_msg = torch.stack([self.hamming_coder.encode(x) for x in msg])
+        watermark = self.encoder(hamming_msg)
         encoded_img = (img + watermark).clamp(-1, 1)
         noised_img, _ = self.noiser([encoded_img, img])
         decoded_msg = self.decoder(noised_img)
-        decoded_msg = torch.stack([self.hamming_coder.decode(x) for x in decoded_msg])
+        
         
         enc_loss = torch.norm(watermark, p=2, dim=(1, 2, 3)).mean()
-        dec_loss = F.binary_cross_entropy_with_logits(decoded_msg, msg)
+        dec_loss = F.binary_cross_entropy_with_logits(decoded_msg, hamming_msg)
         loss = self.enc_scale*enc_loss + self.dec_scale*dec_loss
         
         pred = (torch.sigmoid(decoded_msg) > 0.5).int()
+        pred = torch.stack([self.hamming_coder.decode(x) for x in pred])
         correct = (pred == msg).sum(1)
         accuracy0 = (correct == self.l).float().mean()
         accuracy3 = (correct > (self.l - 3)).float().mean()

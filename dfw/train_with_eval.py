@@ -47,7 +47,7 @@ class DFWTrain(DFW):
 
         watermark = self.encoder(msg)
         encoded_img = (img + watermark).clamp(-limit, limit)
-        noised_img = self.noiser(encoded_img)
+        noised_img, _ = self.noiser([encoded_img, img])
         decoded_msg = self.decoder(noised_img)
 
         enc_loss = torch.norm(watermark, p=2, dim=(1, 2, 3)).mean()
@@ -69,7 +69,7 @@ class DFWTrain(DFW):
         with torch.no_grad():
             watermark = self.encoder(msg)
             encoded_img = (img + watermark).clamp(-limit, limit)
-            noised_img = self.noiser(encoded_img)
+            noised_img, _ = self.noiser([encoded_img, img])
             decoded_msg = self.decoder(noised_img)
 
             #diff between original image and watermarked image must be minimized
@@ -105,7 +105,10 @@ def pretrain(args):
         stats = net.pre_optimize(msg)
         if stats['loss'] < 0.05:
             print(f"Grown: {depth}/{pretrain_depth} | loss: {stats['loss']}")
-            depth += 1
+            if depth == 2:
+                depth += 2
+            else:
+                depth += 1
     torch.save(net.state_dict(), pretrain_filename)
     print('Pre-trained Weight Saved')
 

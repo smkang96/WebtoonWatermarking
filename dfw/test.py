@@ -5,6 +5,7 @@ from torch.utils.data import DataLoader
 from data.watermark import Watermark
 from net import DFW, max_depth
 import common.path as path
+from utils import HammingCoder
 
 
 log_filename = './test.log'
@@ -15,15 +16,17 @@ class DFWTest(DFW):
         super().__init__(args, data)
 
         self.enc_scale, self.dec_scale = args.enc_scale, args.dec_scale
-
+        self.hamming_coder = HammingCoder(device=args.device)
+        
     def stats(self, img, msg):
         self.eval()
-
+        msg = torch.stack([self.hamming_coder.encode(x) for x in msg])
         watermark = self.encoder(msg)
         encoded_img = (img + watermark).clamp(-1, 1)
         noised_img, _ = self.noiser([encoded_img, img])
         decoded_msg = self.decoder(noised_img)
-
+        decoded_msg = torch.stack([self.hamming_coder.decode(x) for x in decoded_msg])
+        
         enc_loss = torch.norm(watermark, p=2, dim=(1, 2, 3)).mean()
         dec_loss = F.binary_cross_entropy_with_logits(decoded_msg, msg)
         loss = self.enc_scale*enc_loss + self.dec_scale*dec_loss
@@ -41,7 +44,7 @@ class DFWTest(DFW):
             'accuracy3': accuracy3,
             'avg_acc': correct.float().mean() / self.l
         }
-
+        
 
 def test_worker(args, queue):
     log_file = open(log_filename, 'w+', buffering=1)

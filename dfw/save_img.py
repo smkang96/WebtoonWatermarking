@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 from data.watermark import Watermark, denormalize
 from net import DFW
 import common.path as path
-
+import json
 
 save_dir = './examples'
 
@@ -18,7 +18,7 @@ save_dir = './examples'
 def save_img(args):
     if not os.path.exists(save_dir):
         os.mkdir(save_dir)
-    dataset = Watermark(args.img_size, args.msg_l, train=False)
+    dataset = Watermark(args.img_size, args.msg_l, train=False, dev=False)
     net = DFW(args, dataset).to(args.device)
     net.encoder.depth=9;net.decoder.depth=9
     loader = DataLoader(dataset=dataset, batch_size=args.n_imgs, shuffle=False)
@@ -34,7 +34,8 @@ def save_img(args):
         encoded_img = (img + watermark).clamp(-1, 1)
         noised_img = net.noiser(encoded_img)
         decoded_msg = net.decoder(noised_img)
-   
+        
+            
 
     convert = lambda img: np.moveaxis(denormalize(img).cpu().numpy(), [1, 2, 3], [3, 1, 2])
     img = convert(img)
@@ -43,7 +44,8 @@ def save_img(args):
     noised_img = convert(noised_img)
     msg = msg.cpu().numpy()
     decoded_msg = (decoded_msg>0.5).float().cpu().numpy()
-
+    
+    dict_output_info = {}
     for i in range(args.n_imgs):
         fig = plt.figure()
         gridspec = fig.add_gridspec(ncols=6, nrows=1, width_ratios=[2, 2, 2, 2, 1, 1])
@@ -75,3 +77,7 @@ def save_img(args):
         fig.tight_layout()
         fig.savefig(os.path.join(save_dir, f'{i}.png'), bbox_inches='tight')
 
+        dict_output_info[i] = sum(abs(decoded_msg[i]-msg[i])) #number of errors
+    print(dict_output_info)
+    with open("qualitative_eval.json", "w+") as f:
+        json.dump(dict_output_info, f)

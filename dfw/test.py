@@ -46,7 +46,7 @@ class DFWTest(DFW):
 def test_worker(args, queue):
     log_file = open(log_filename, 'w+', buffering=1)
 
-    dataset = Watermark(args.img_size, args.msg_l, train=False)
+    dataset = Watermark(args.img_size, args.msg_l, train=False, dev=False)
     loader = DataLoader(dataset=dataset, batch_size=args.batch_size, shuffle=False)
     net = DFWTest(args, dataset).to(args.test_device)
     net.set_depth(max_depth)
@@ -79,7 +79,7 @@ def test_worker(args, queue):
 
 
 def test(args):
-    dataset = Watermark(args.img_size, args.msg_l, train=False)
+    dataset = Watermark(args.img_size, args.msg_l, train=False, dev=False)
     loader = DataLoader(dataset=dataset, batch_size=args.batch_size, shuffle=False)
     net = DFWTest(args, dataset).to(args.device)
     net.set_depth(max_depth)

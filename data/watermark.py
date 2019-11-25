@@ -21,13 +21,13 @@ class Watermark(data.Dataset):
         self.l = msg_l
 
         if train:
-            img_dir += 'train/'
+            img_dir = os.path.join(img_dir, 'train')
             self.img_paths = list(map(lambda x: os.path.join(img_dir, x), os.listdir(img_dir)))
         elif dev:
-            img_dir += 'dev/'
+            img_dir = os.path.join(img_dir, 'dev')
             self.img_paths = list(map(lambda x: os.path.join(img_dir, x), os.listdir(img_dir)))
         else:
-            img_dir += 'test/'
+            img_dir = os.path.join(img_dir, 'test')
             self.img_paths = list(map(lambda x: os.path.join(img_dir, x), os.listdir(img_dir)))
         
         self.img_paths = list(filter(lambda x: 'jpg' in x, self.img_paths))

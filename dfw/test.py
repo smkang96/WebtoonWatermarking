@@ -17,32 +17,35 @@ class DFWTest(DFW):
 
         self.enc_scale, self.dec_scale = args.enc_scale, args.dec_scale
         self.hamming_coder = HammingCoder(device=args.device)
-        
+              
     def stats(self, img, msg):
         self.eval()
         hamming_msg = torch.stack([self.hamming_coder.encode(x) for x in msg])
         watermark = self.encoder(hamming_msg)
         encoded_img = (img + watermark).clamp(-1, 1)
         noised_img, _ = self.noiser([encoded_img, img])
-        decoded_msg = self.decoder(noised_img)
+        decoded_msg_logit = self.decoder(noised_img)
         
         
         enc_loss = torch.norm(watermark, p=2, dim=(1, 2, 3)).mean()
-        dec_loss = F.binary_cross_entropy_with_logits(decoded_msg, hamming_msg)
+        dec_loss = F.binary_cross_entropy_with_logits(decoded_msg_logit, hamming_msg)
         loss = self.enc_scale*enc_loss + self.dec_scale*dec_loss
         
-        pred = (torch.sigmoid(decoded_msg) > 0.5).int()
-        pred = torch.stack([self.hamming_coder.decode(x) for x in pred])
-        correct = (pred == msg).sum(1)
+        pred_without_hamming_dec = (torch.sigmoid(decoded_msg_logit) > 0.5).int()
+        pred_msg = torch.stack([self.hamming_coder.decode(x) for x in pred_without_hamming_dec])
+        correct = (pred_msg == msg).sum(1)
         accuracy0 = (correct == self.l).float().mean()
         accuracy3 = (correct > (self.l - 3)).float().mean()
-
+        accuracy_raw = ((pred_without_hamming_dec == hamming_msg).sum(1) == hamming_msg.shape[1]).float().mean()
+        print(accuracy_raw)
+        
         return {
             'loss': loss.item(),
             'enc_loss': enc_loss.item(),
             'dec_loss': dec_loss.item(),
             'accuracy0': accuracy0,
             'accuracy3': accuracy3,
+            'accuracy_raw': accuracy_raw,
             'avg_acc': correct.float().mean() / self.l
         }
         
@@ -67,6 +70,7 @@ def test_worker(args, queue):
             'dec_loss': 0,
             'accuracy0': 0,
             'accuracy3': 0,
+            'accuracy_raw': 0,
             'avg_acc': 0,
         }
 
@@ -84,6 +88,37 @@ def test_worker(args, queue):
         log_file.write("Epoch {} | {}\n".format(epoch_i,  " ".join([f"{k}: {v:.3f}"for k, v in stats.items()])))
         queue.task_done()
 
+def test_per_user(args):
+    dataset = Watermark(args.img_size, train=False, dev=False)
+    loader = DataLoader(dataset=dataset, batch_size=args.batch_size, shuffle=False)
+    msg_dist = torch.distributions.Bernoulli(probs=0.5*torch.ones(args.msg_l))
+    list_msg = msg_dist.sample([1])
+    
+    net = DFWTest(args, dataset).to(args.device)
+    net.set_depth(max_depth)
+    net.load_state_dict(torch.load(path.save_path))
+
+    with torch.no_grad():
+        for i, msg in enumerate(list_msg):
+            stats = {
+                'loss': 0,
+                'enc_loss': 0,
+                'dec_loss': 0,
+                'accuracy0': 0,
+                'accuracy3': 0,
+                'accuracy_raw': 0,
+                'avg_acc': 0,
+            }
+            for img in loader:
+                msg_batched = msg.repeat(img.shape[0], 1)
+                img, msg_batched = img.to(args.device), msg_batched.to(args.device)
+                batch_stats = net.stats(img, msg_batched)
+                for k in stats:
+                    stats[k] += len(img) * batch_stats[k]
+
+            for k in stats:
+                stats[k] = stats[k] / len(dataset)
+            print("User", i, "Noise type:", args.noise_type, " ".join([f"{k}: {v:.3f}"for k, v in stats.items()]))
 
 def test(args):
     dataset = Watermark(args.img_size, train=False, dev=False)
@@ -100,6 +135,7 @@ def test(args):
         'dec_loss': 0,
         'accuracy0': 0,
         'accuracy3': 0,
+        'accuracy_raw': 0,
         'avg_acc': 0,
     }
 

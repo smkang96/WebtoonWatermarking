@@ -12,13 +12,14 @@ def make_parser(modes):
     return parser, subparsers.choices
 
 from train_with_eval import pretrain, train
-from test import test
+from test import test, test_per_user
 from save_img import save_img
 
 modes = {
     'pretrain': pretrain,
     'train': train,
     'test': test,
+    'test_per_user': test_per_user,
     'save_img': save_img,
 }
 parser, subparsers = make_parser(modes)
@@ -39,6 +40,8 @@ for mode, subparser in subparsers.items():
 
     if 'save_img' == mode:
         subparser.add_argument('--n_imgs', type=int)
+    if 'test_per_user' == mode:
+        subparser.add_argument('--n_users', type=int)
 
     if 'save_img' not in mode:
         subparser.add_argument('--batch_size', type=int)

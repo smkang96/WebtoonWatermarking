@@ -7,6 +7,8 @@ from net import DFW, max_depth
 import common.path as path
 from utils import HammingCoder
 import numpy as np
+import pickle
+from tqdm import tqdm
 
 log_filename = './test.log'
 
@@ -41,11 +43,11 @@ class DFWTest(DFW):
             'loss': loss.item(),
             'enc_loss': enc_loss.item(),
             'dec_loss': dec_loss.item(),
-            'accuracy0': accuracy0,
-            'accuracy3': accuracy3,
-            'num_right_bits_without_hamming': num_right_bits_without_hamming,
-            'avg_acc': correct.float().mean() / self.l,
-            'num_right_bits': correct.float().mean()
+            'accuracy0': accuracy0.item(),
+            'accuracy3': accuracy3.item(),
+            'num_right_bits_without_hamming': num_right_bits_without_hamming.item(),
+            'avg_acc': (correct.float().mean() / self.l).item(),
+            'num_right_bits': correct.float().mean().item()
         }
         
 
@@ -98,9 +100,9 @@ def test_per_user(args):
     net = DFWTest(args, dataset).to(args.device)
     net.set_depth(max_depth)
     net.load_state_dict(torch.load(path.save_path))
-
+    list_stats = []
     with torch.no_grad():
-        for i, msg in enumerate(list_msg):
+        for i, msg in tqdm(enumerate(list_msg)):
             stats = {
                 'loss': 0,
                 'enc_loss': 0,
@@ -120,8 +122,11 @@ def test_per_user(args):
 
             for k in stats:
                 stats[k] = stats[k] / len(dataset)
-            print("User", i, "Noise type:", args.noise_type, " ".join([f"{k}: {v:.3f}"for k, v in stats.items()]))
-
+            list_stats.append(stats)
+            #print("User", i, "Noise type:", args.noise_type, " ".join([f"{k}: {v:.3f}"for k, v in stats.items()]))
+    pickle.dump( list_stats, open( "list_stats.p", "wb" ) )
+    
+    
 def test(args):
     dataset = Watermark(args.img_size, train=False, dev=False)
     loader = DataLoader(dataset=dataset, batch_size=args.batch_size, shuffle=False)

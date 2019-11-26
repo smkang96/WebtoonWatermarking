@@ -12,13 +12,14 @@ def make_parser(modes):
     return parser, subparsers.choices
 
 from train_with_eval import pretrain, train
-from test import test
+from test import test, test_per_user
 from save_img import save_img
 
 modes = {
     'pretrain': pretrain,
     'train': train,
     'test': test,
+    'test_per_user': test_per_user,
     'save_img': save_img,
 }
 parser, subparsers = make_parser(modes)

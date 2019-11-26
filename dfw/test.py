@@ -37,7 +37,6 @@ class DFWTest(DFW):
         accuracy0 = (correct == self.l).float().mean()
         accuracy3 = (correct > (self.l - 3)).float().mean()
         accuracy_raw = ((pred_without_hamming_dec == hamming_msg).sum(1) == hamming_msg.shape[1]).float().mean()
-        print(accuracy_raw)
         
         return {
             'loss': loss.item(),

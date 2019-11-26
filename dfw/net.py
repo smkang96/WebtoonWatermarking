@@ -21,7 +21,7 @@ class DFW(nn.Module):
     def __init__(self, args, data):
         super().__init__()
 
-        self.l = data.l
+        self.l = args.msg_l
         self.encoder = Encoder(args.img_size, 31)
         self.noiser = Noiser(args.noise_type)
         self.decoder = Decoder(31)

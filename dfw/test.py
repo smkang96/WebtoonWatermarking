@@ -50,8 +50,10 @@ class DFWTest(DFW):
 def test_worker(args, queue):
     log_file = open(log_filename, 'w+', buffering=1)
 
-    dataset = Watermark(args.img_size, args.msg_l, train=False, dev=False)
+    dataset = Watermark(args.img_size, train=False, dev=False)
     loader = DataLoader(dataset=dataset, batch_size=args.batch_size, shuffle=False)
+    msg_dist = torch.distributions.Bernoulli(probs=0.5*torch.ones(args.msg_l))
+    
     net = DFWTest(args, dataset).to(args.test_device)
     net.set_depth(max_depth)
     
@@ -69,7 +71,8 @@ def test_worker(args, queue):
         }
 
         with torch.no_grad():
-            for img, msg in loader:
+            for img in loader:
+                msg = msg_dist.sample([img.shape[0]])
                 img, msg = img.to(args.test_device), msg.to(args.test_device)
                 batch_stats = net.stats(img, msg)
                 for k in stats:
@@ -83,8 +86,10 @@ def test_worker(args, queue):
 
 
 def test(args):
-    dataset = Watermark(args.img_size, args.msg_l, train=False, dev=False)
+    dataset = Watermark(args.img_size, train=False, dev=False)
     loader = DataLoader(dataset=dataset, batch_size=args.batch_size, shuffle=False)
+    msg_dist = torch.distributions.Bernoulli(probs=0.5*torch.ones(args.msg_l))
+    
     net = DFWTest(args, dataset).to(args.device)
     net.set_depth(max_depth)
     
@@ -99,7 +104,8 @@ def test(args):
     }
 
     with torch.no_grad():
-        for img, msg in loader:
+        for img in loader:
+            msg = msg_dist.sample([img.shape[0]])
             img, msg = img.to(args.device), msg.to(args.device)
             batch_stats = net.stats(img, msg)
             for k in stats:

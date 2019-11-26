@@ -13,7 +13,6 @@ from net import DFW, pretrain_depth, max_depth
 import common.path as path
 from test import test_worker
 
-
 log_filename = './train.log'
 pretrain_filename = './pretrain.pt'
 
@@ -94,14 +93,16 @@ def start_test_process(args):
 
 
 def pretrain(args):
-    dataset = Watermark(args.img_size, args.msg_l, train=True, dev=False)
+    dataset = Watermark(args.img_size, train=True, dev=False)
+    msg_dist = torch.distributions.Bernoulli(probs=0.5*torch.ones(args.msg_l))
+    
     net = DFWTrain(args, dataset).to(args.device)
 
     print('Pre-training Start')
     depth = 1
     while depth <= pretrain_depth:
         net.set_depth(depth)
-        msg = dataset.msg_dist.sample((args.batch_size, )).to(args.device)
+        msg = msg_dist.sample((args.batch_size, )).to(args.device)
         stats = net.pre_optimize(msg)
         if stats['loss'] < 0.05:
             print(f"Grown: {depth}/{pretrain_depth} | loss: {stats['loss']}")
@@ -118,10 +119,12 @@ def train(args):
     test_process, queue = start_test_process(args)
     log_file = open(log_filename, 'w+', buffering=1)
 
-    train_set = Watermark(args.img_size, args.msg_l, train=True,  dev=False)
-    dev_set = Watermark(args.img_size, args.msg_l, train=False,  dev=True)
+    train_set = Watermark(args.img_size, train=True,  dev=False)
+    dev_set = Watermark(args.img_size, train=False,  dev=True)
     train_loader = DataLoader(dataset=train_set, batch_size=args.batch_size, shuffle=True)
     dev_loader = DataLoader(dataset=dev_set, batch_size=args.batch_size, shuffle=True)
+    msg_dist = torch.distributions.Bernoulli(probs=0.5*torch.ones(args.msg_l))
+                  
     net = DFWTrain(args, train_set).to(args.device)
 
     if not os.path.exists(pretrain_filename):
@@ -140,7 +143,8 @@ def train(args):
             enc_scale = args.enc_scale * min(1, epoch_i / args.annealing_epochs)
             limit = max(1, 5 - 4 * epoch_i / args.annealing_epochs)
 
-            for batch_i, (img, msg) in enumerate(train_loader):
+            for batch_i, img in enumerate(train_loader):
+                msg = msg_dist.sample([img.shape[0]])
                 img, msg = img.to(args.device), msg.to(args.device)
                 stats = net.optimize(img, msg, enc_scale, limit)
                 tqdm_bar.set_postfix(**stats)
@@ -152,7 +156,8 @@ def train(args):
             # validate the model #
             ######################
             list_valid_loss = []
-            for dev_batch, (img, msg) in enumerate(dev_loader):
+            for dev_batch, img in enumerate(dev_loader):
+                msg = msg_dist.sample([img.shape[0]])
                 img, msg = img.to(args.device), msg.to(args.device)
                 stats = net.evaluate(img, msg, enc_scale, limit)
                 list_valid_loss.append(stats['loss'])

@@ -6,7 +6,7 @@ from data.watermark import Watermark
 from net import DFW, max_depth
 import common.path as path
 from utils import HammingCoder
-
+import numpy as np
 
 log_filename = './test.log'
 
@@ -36,16 +36,16 @@ class DFWTest(DFW):
         correct = (pred_msg == msg).sum(1)
         accuracy0 = (correct == self.l).float().mean()
         accuracy3 = (correct > (self.l - 3)).float().mean()
-        accuracy_raw = ((pred_without_hamming_dec == hamming_msg).sum(1) == hamming_msg.shape[1]).float().mean()
-        
+        num_right_bits_without_hamming = ((pred_without_hamming_dec == hamming_msg).sum(1)).float().mean()
         return {
             'loss': loss.item(),
             'enc_loss': enc_loss.item(),
             'dec_loss': dec_loss.item(),
             'accuracy0': accuracy0,
             'accuracy3': accuracy3,
-            'accuracy_raw': accuracy_raw,
-            'avg_acc': correct.float().mean() / self.l
+            'num_right_bits_without_hamming': num_right_bits_without_hamming,
+            'avg_acc': correct.float().mean() / self.l,
+            'num_right_bits': correct.float().mean()
         }
         
 
@@ -69,8 +69,9 @@ def test_worker(args, queue):
             'dec_loss': 0,
             'accuracy0': 0,
             'accuracy3': 0,
-            'accuracy_raw': 0,
+            'num_right_bits_without_hamming': 0,
             'avg_acc': 0,
+            'num_right_bits': 0
         }
 
         with torch.no_grad():
@@ -91,8 +92,9 @@ def test_per_user(args):
     dataset = Watermark(args.img_size, train=False, dev=False)
     loader = DataLoader(dataset=dataset, batch_size=args.batch_size, shuffle=False)
     msg_dist = torch.distributions.Bernoulli(probs=0.5*torch.ones(args.msg_l))
-    list_msg = msg_dist.sample([1])
+    list_msg = msg_dist.sample([args.n_users])
     
+    np.savetxt("./foo.csv", list_msg.numpy(), delimiter=",")
     net = DFWTest(args, dataset).to(args.device)
     net.set_depth(max_depth)
     net.load_state_dict(torch.load(path.save_path))
@@ -105,8 +107,9 @@ def test_per_user(args):
                 'dec_loss': 0,
                 'accuracy0': 0,
                 'accuracy3': 0,
-                'accuracy_raw': 0,
+                'num_right_bits_without_hamming': 0,
                 'avg_acc': 0,
+                'num_right_bits': 0
             }
             for img in loader:
                 msg_batched = msg.repeat(img.shape[0], 1)
@@ -134,8 +137,9 @@ def test(args):
         'dec_loss': 0,
         'accuracy0': 0,
         'accuracy3': 0,
-        'accuracy_raw': 0,
+        'num_right_bits_without_hamming': 0,
         'avg_acc': 0,
+        'num_right_bits': 0
     }
 
     with torch.no_grad():

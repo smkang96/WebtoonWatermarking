@@ -42,6 +42,9 @@ class Noiser(nn.Module):
         return super().to(device)
 
     def forward(self, encoded_and_cover):
-        random_noise_layer = np.random.choice(self.noise_layers, 1)[0]
-        return random_noise_layer(encoded_and_cover)
+        encoded_and_cover = self.noise_layers[0](encoded_and_cover)
+        for layer in self.noise_layers:
+            encoded_and_cover = layer(encoded_and_cover)
+        #random_noise_layer = np.random.choice(self.noise_layers, 1)[0]
+        return encoded_and_cover
 

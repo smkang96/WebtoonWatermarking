@@ -1,5 +1,4 @@
 import torch
-import torch.distributions
 from torchvision import transforms
 from torch.utils import data
 import os

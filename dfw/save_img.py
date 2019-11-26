@@ -12,21 +12,23 @@ from net import DFW
 import common.path as path
 import json
 
-save_dir = './examples'
-
 
 def save_img(args):
+    save_dir = './examples_' + args.noise_type
     if not os.path.exists(save_dir):
         os.mkdir(save_dir)
-    dataset = Watermark(args.img_size, args.msg_l, train=False, dev=False)
-    net = DFW(args, dataset).to(args.device)
-    net.encoder.depth=9;net.decoder.depth=9
+    
+    dataset = Watermark(args.img_size, train=False, dev=False)
+    msg_dist = torch.distributions.Bernoulli(probs=0.5*torch.ones(args.msg_l))
     loader = DataLoader(dataset=dataset, batch_size=args.n_imgs, shuffle=False)
     
+    net = DFW(args, dataset).to(args.device)
+    net.encoder.depth=9;net.decoder.depth=9   
     net.load_state_dict(torch.load(path.save_path))
 
     with torch.no_grad():
-        img, msg = next(iter(loader))
+        img = next(iter(loader))
+        msg = msg_dist.sample([args.n_imgs])
         img, msg = img.to(args.device), msg.to(args.device)
         
         net.eval()

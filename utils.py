@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+from skimage import color
 
 class HammingCoder():
     '''encodes and decodes hamming code
@@ -53,3 +54,29 @@ class HammingCoder():
                 # worst case where error in data; otherwise on parity bit, ignore
                 enc[error_bit] = 1-enc[error_bit]
         return enc[:self._data_bits]
+
+def LAB_L2_dist(img1, img2, mode='max'):
+    '''takes two rgb images and calculates the LAB L2 distance.
+    Uses the CIE76 formula for perceptual distance calculation, which might
+    lead to underestimations for saturated colors. In the CIE76 formula, color
+    distance of 2.3 corresponds to a "just noticiable difference". 
+    
+    INPUT
+    img1, img2: assumed to be 3-dim tensors of the form (3, *, *) 
+    normalized to (-1, 1) range for convenience; please take note!
+    mode: {"mean", "max"}, optional, the type of l2 dist aggregation desired.'''
+    def _normalize(img):
+        return ((img + 1) * 127.5).cpu().numpy().astype('uint8').transpose(1, 2, 0)
+    
+    img1 = _normalize(img1)
+    img2 = _normalize(img2)
+    lab_img1 = color.rgb2lab(img1)
+    lab_img2 = color.rgb2lab(img2)
+    deltaE_76 = np.sqrt(np.sum((lab_img1 - lab_img2)**2, axis=2))
+    if mode == 'mean':
+        return np.mean(deltaE_76)
+    elif mode == 'max':
+        return np.max(deltaE_76)
+    else:
+        raise ValueError(f'unrecognized mode {mode}')
+    

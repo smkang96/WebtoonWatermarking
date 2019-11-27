@@ -20,7 +20,7 @@ class DFWTest(DFW):
         self.enc_scale, self.dec_scale = args.enc_scale, args.dec_scale
         self.hamming_coder = HammingCoder(device=args.device)
               
-    def stats(self, img, msg):
+    def stats(self, img, msg, noise_type):
         self.eval()
         hamming_msg = torch.stack([self.hamming_coder.encode(x) for x in msg])
         watermark = self.encoder(hamming_msg)
@@ -39,8 +39,10 @@ class DFWTest(DFW):
         accuracy0 = (correct == self.l).float().mean()
         accuracy3 = (correct > (self.l - 3)).float().mean()
         num_right_bits_without_hamming = ((pred_without_hamming_dec == hamming_msg).sum(1)).float().mean()
-        
-        lab_dist = np.mean([LAB_L2_dist(im, noised_img[i]) for i, im in enumerate(img)])
+        if noise_type not in ["crop", "cropout", "resize"]:
+            lab_dist = np.mean([LAB_L2_dist(im, noised_img[i]) for i, im in enumerate(img)])
+        else:
+            lab_dist = 0
         
         return {
             'loss': loss.item(),
@@ -85,7 +87,7 @@ def test_worker(args, queue):
             for img in loader:
                 msg = msg_dist.sample([img.shape[0]])
                 img, msg = img.to(args.test_device), msg.to(args.test_device)
-                batch_stats = net.stats(img, msg)
+                batch_stats = net.stats(img, msg, args.noise_type)
                 for k in stats:
                     stats[k] += len(img) * batch_stats[k]
 
@@ -122,7 +124,7 @@ def test_per_user(args):
             for img in loader:
                 msg_batched = msg.repeat(img.shape[0], 1)
                 img, msg_batched = img.to(args.device), msg_batched.to(args.device)
-                batch_stats = net.stats(img, msg_batched)
+                batch_stats = net.stats(img, msg_batched, args.noise_type)
                 for k in stats:
                     stats[k] += len(img) * batch_stats[k]
 
@@ -158,7 +160,7 @@ def test(args):
         for img in loader:
             msg = msg_dist.sample([img.shape[0]])
             img, msg = img.to(args.device), msg.to(args.device)
-            batch_stats = net.stats(img, msg)
+            batch_stats = net.stats(img, msg, args.noise_type)
             for k in stats:
                 stats[k] += len(img) * batch_stats[k]
 

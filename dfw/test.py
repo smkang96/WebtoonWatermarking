@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader
 from data.watermark import Watermark
 from net import DFW, max_depth
 import common.path as path
-from utils import HammingCoder
+from utils import HammingCoder, LAB_L2_dist
 import numpy as np
 import pickle
 from tqdm import tqdm
@@ -39,6 +39,9 @@ class DFWTest(DFW):
         accuracy0 = (correct == self.l).float().mean()
         accuracy3 = (correct > (self.l - 3)).float().mean()
         num_right_bits_without_hamming = ((pred_without_hamming_dec == hamming_msg).sum(1)).float().mean()
+        
+        lab_dist = np.mean([LAB_L2_dist(im, noised_img[i]) for i, im in enumerate(img)])
+        
         return {
             'loss': loss.item(),
             'enc_loss': enc_loss.item(),
@@ -47,7 +50,8 @@ class DFWTest(DFW):
             'accuracy3': accuracy3.item(),
             'num_right_bits_without_hamming': num_right_bits_without_hamming.item(),
             'avg_acc': (correct.float().mean() / self.l).item(),
-            'num_right_bits': correct.float().mean().item()
+            'num_right_bits': correct.float().mean().item(),
+            'lab_dist': lab_dist
         }
         
 
@@ -73,7 +77,8 @@ def test_worker(args, queue):
             'accuracy3': 0,
             'num_right_bits_without_hamming': 0,
             'avg_acc': 0,
-            'num_right_bits': 0
+            'num_right_bits': 0,
+            'lab_dist': 0
         }
 
         with torch.no_grad():
@@ -111,7 +116,8 @@ def test_per_user(args):
                 'accuracy3': 0,
                 'num_right_bits_without_hamming': 0,
                 'avg_acc': 0,
-                'num_right_bits': 0
+                'num_right_bits': 0,
+                'lab_dist': 0
             }
             for img in loader:
                 msg_batched = msg.repeat(img.shape[0], 1)
@@ -144,7 +150,8 @@ def test(args):
         'accuracy3': 0,
         'num_right_bits_without_hamming': 0,
         'avg_acc': 0,
-        'num_right_bits': 0
+        'num_right_bits': 0,
+        'lab_dist': 0
     }
 
     with torch.no_grad():

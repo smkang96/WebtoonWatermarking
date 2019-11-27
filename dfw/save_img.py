@@ -52,7 +52,18 @@ def store_images(img, msg, watermark, encoded_img, noised_img, decoded_msg, save
 
         fig.tight_layout()
         fig.savefig(os.path.join(save_dir, f'{i}.png'), bbox_inches='tight')
-
+        plt.close()
+        
+        fig2 = plt.figure()
+        plt.imshow(noised_img[i])
+        fig2.savefig(os.path.join(save_dir, f'{i}noise.png'))
+        plt.close()
+        
+        fig3 = plt.figure()
+        plt.imshow(img[i])
+        fig3.savefig(os.path.join(save_dir, f'{i}original.png'))
+        plt.close()
+        
         dict_output_info[i] = sum(abs(decoded_msg[i]-msg[i])) #number of errors
     print(dict_output_info)
     

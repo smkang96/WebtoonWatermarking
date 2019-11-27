@@ -40,6 +40,7 @@ for mode, subparser in subparsers.items():
 
     if 'save_img' == mode:
         subparser.add_argument('--n_imgs', type=int)
+    
     if 'test_per_user' == mode:
         subparser.add_argument('--n_users', type=int)
 

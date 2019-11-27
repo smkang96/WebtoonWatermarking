@@ -22,10 +22,14 @@ class DFW(nn.Module):
         super().__init__()
 
         self.l = args.msg_l
-        self.encoder = Encoder(args.img_size, 31)
-        self.noiser = Noiser(args.noise_type)
-        self.decoder = Decoder(31)
+        if args.use_hamming:
+            self.encoder = Encoder(args.img_size, 31)
+            self.decoder = Decoder(31)
+        else:
+            self.encoder = Encoder(args.img_size, args.msg_l)
+            self.decoder = Decoder(args.msg_l)
 
+        self.noiser = Noiser(args.noise_type)
         self.set_depth(max_depth)
 
     def set_depth(self, d):

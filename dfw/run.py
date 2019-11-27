@@ -28,6 +28,8 @@ for mode, subparser in subparsers.items():
     subparser.add_argument('--img_dir', type=str)
     subparser.add_argument('--img_size', type=int)
     subparser.add_argument('--msg_l', type=int)
+    subparser.add_argument('--use_hamming', default=True, action='store_true')
+    subparser.add_argument('--no-use_hamming', dest='use_hamming', action='store_false')
     subparser.add_argument('--device', type=int)
     subparser.add_argument('--test_device', type=int)
     subparser.add_argument('--noise_type', type=str)

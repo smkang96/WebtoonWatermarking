@@ -11,7 +11,7 @@ import pickle
 from tqdm import tqdm
 
 log_filename = './test.log'
-
+torch.manual_seed(0)
 
 class DFWTest(DFW):
     def __init__(self, args, data):
@@ -20,27 +20,31 @@ class DFWTest(DFW):
         self.enc_scale, self.dec_scale = args.enc_scale, args.dec_scale
         self.hamming_coder = HammingCoder(device=args.device)
               
-    def stats(self, img, msg):
+    def stats(self, img, msg, use_hamming):
         self.eval()
-        hamming_msg = torch.stack([self.hamming_coder.encode(x) for x in msg])
-        watermark = self.encoder(hamming_msg)
+        original_msg = msg
+        if use_hamming:
+            msg = torch.stack([self.hamming_coder.encode(x) for x in msg])
+            
+        # NN
+        watermark = self.encoder(msg)
         encoded_img = (img + watermark).clamp(-1, 1)
         noised_img, _ = self.noiser([encoded_img, img])
         decoded_msg_logit = self.decoder(noised_img)
+        pred_msg = (torch.sigmoid(decoded_msg_logit) > 0.5).int()
+        ## End NN
         
+        if use_hamming:
+            pred_msg = torch.stack([self.hamming_coder.decode(x) for x in pred_msg])
+            
+        correct = (pred_msg == original_msg).sum(1)
+        accuracy0 = (correct == self.l).float().mean()
+        accuracy3 = (correct > (self.l - 3)).float().mean()        
+        lab_dist = np.mean([LAB_L2_dist(im, noised_img[i]) for i, im in enumerate(img)])
         
         enc_loss = torch.norm(watermark, p=2, dim=(1, 2, 3)).mean()
-        dec_loss = F.binary_cross_entropy_with_logits(decoded_msg_logit, hamming_msg)
+        dec_loss = F.binary_cross_entropy_with_logits(decoded_msg_logit, msg)
         loss = self.enc_scale*enc_loss + self.dec_scale*dec_loss
-        
-        pred_without_hamming_dec = (torch.sigmoid(decoded_msg_logit) > 0.5).int()
-        pred_msg = torch.stack([self.hamming_coder.decode(x) for x in pred_without_hamming_dec])
-        correct = (pred_msg == msg).sum(1)
-        accuracy0 = (correct == self.l).float().mean()
-        accuracy3 = (correct > (self.l - 3)).float().mean()
-        num_right_bits_without_hamming = ((pred_without_hamming_dec == hamming_msg).sum(1)).float().mean()
-        
-        lab_dist = np.mean([LAB_L2_dist(im, noised_img[i]) for i, im in enumerate(img)])
         
         return {
             'loss': loss.item(),
@@ -48,7 +52,6 @@ class DFWTest(DFW):
             'dec_loss': dec_loss.item(),
             'accuracy0': accuracy0.item(),
             'accuracy3': accuracy3.item(),
-            'num_right_bits_without_hamming': num_right_bits_without_hamming.item(),
             'avg_acc': (correct.float().mean() / self.l).item(),
             'num_right_bits': correct.float().mean().item(),
             'lab_dist': lab_dist
@@ -75,7 +78,6 @@ def test_worker(args, queue):
             'dec_loss': 0,
             'accuracy0': 0,
             'accuracy3': 0,
-            'num_right_bits_without_hamming': 0,
             'avg_acc': 0,
             'num_right_bits': 0,
             'lab_dist': 0
@@ -85,7 +87,7 @@ def test_worker(args, queue):
             for img in loader:
                 msg = msg_dist.sample([img.shape[0]])
                 img, msg = img.to(args.test_device), msg.to(args.test_device)
-                batch_stats = net.stats(img, msg)
+                batch_stats = net.stats(img, msg, args.use_hamming)
                 for k in stats:
                     stats[k] += len(img) * batch_stats[k]
 
@@ -114,7 +116,6 @@ def test_per_user(args):
                 'dec_loss': 0,
                 'accuracy0': 0,
                 'accuracy3': 0,
-                'num_right_bits_without_hamming': 0,
                 'avg_acc': 0,
                 'num_right_bits': 0,
                 'lab_dist': 0
@@ -122,7 +123,7 @@ def test_per_user(args):
             for img in loader:
                 msg_batched = msg.repeat(img.shape[0], 1)
                 img, msg_batched = img.to(args.device), msg_batched.to(args.device)
-                batch_stats = net.stats(img, msg_batched)
+                batch_stats = net.stats(img, msg_batched, args.use_hamming)
                 for k in stats:
                     stats[k] += len(img) * batch_stats[k]
 
@@ -134,6 +135,7 @@ def test_per_user(args):
     
     
 def test(args):
+    print(args.use_hamming)
     dataset = Watermark(args.img_size, train=False, dev=False)
     loader = DataLoader(dataset=dataset, batch_size=args.batch_size, shuffle=False)
     msg_dist = torch.distributions.Bernoulli(probs=0.5*torch.ones(args.msg_l))
@@ -148,17 +150,15 @@ def test(args):
         'dec_loss': 0,
         'accuracy0': 0,
         'accuracy3': 0,
-        'num_right_bits_without_hamming': 0,
         'avg_acc': 0,
         'num_right_bits': 0,
         'lab_dist': 0
     }
-
     with torch.no_grad():
         for img in loader:
             msg = msg_dist.sample([img.shape[0]])
             img, msg = img.to(args.device), msg.to(args.device)
-            batch_stats = net.stats(img, msg)
+            batch_stats = net.stats(img, msg, args.use_hamming)
             for k in stats:
                 stats[k] += len(img) * batch_stats[k]
 

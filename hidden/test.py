@@ -1,20 +1,26 @@
-import numpy as np
 import torch
+import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
 from data.watermark import Watermark
 from net import Hidden
 import common.path as path
-
+from utils import HammingCoder, LAB_L2_dist
+import numpy as np
+import pickle
+from tqdm import tqdm
 
 log_filename = './test.log'
 
 
 class HiddenTest(Hidden):
-    def stats(self, img, msg):
+    def __init__(self, args, data):
+        super().__init__(args, data)
+              
+    def stats(self, img, msg, noise_type):
         self.eval()
-
         encoded_img = self.encoder(img, msg)
+        print(encoded_img.shape)
         noised_img = self.noiser(encoded_img)
         decoded_msg = self.decoder(noised_img)
 
@@ -23,40 +29,60 @@ class HiddenTest(Hidden):
         enc_loss = self.enc_loss(encoded_img, img)
         dec_loss = self.dec_loss(decoded_msg, msg)
         adv_loss = self.adv_loss(encoded_img)
-        G_loss = self.G_loss(enc_loss, dec_loss, adv_loss)
-
+        #G_loss = self.G_loss(enc_loss, dec_loss, adv_loss)
+        
+        pred_msg = (torch.sigmoid(decoded_msg) > 0.5).int()
+        correct = (pred_msg == msg).sum(1)
+        accuracy0 = (correct == msg.shape[1]).float().mean()
+        accuracy3 = (correct > (msg.shape[1] - 3)).float().mean()
+        if noise_type not in ["crop", "cropout", "resize"]:
+            lab_dist_orig_noise = np.mean([LAB_L2_dist(im, noised_img[i]) for i, im in enumerate(img)])
+            lab_dist_noise_watermarked = np.mean([LAB_L2_dist(im, encoded_img[i]) for i, im in enumerate(img)])
+        else:
+            lab_dist_orig_noise = -1
+            lab_dist_noise_watermarked = -1
+        
         return {
-            'D_loss': D_loss,
-            'G_loss': G_loss,
-            'enc_loss': enc_loss,
-            'dec_loss': dec_loss,
-            'adv_loss': adv_loss
+            'enc_loss': enc_loss.item(),
+            'dec_loss': dec_loss.item(),
+            'accuracy0': accuracy0.item(),
+            'accuracy3': accuracy3.item(),
+            'avg_acc': (correct.float().mean() / msg.shape[1]).item(),
+            'num_right_bits': correct.float().mean().item(),
+            'lab_dist_orig_noise': lab_dist_orig_noise,
+            'lab_dist_noise_watermarked': lab_dist_noise_watermarked
         }
-
+        
 
 def test_worker(args, queue):
     log_file = open(log_filename, 'w+', buffering=1)
 
-    dataset = Watermark(args.img_size, args.msg_l, train=False)
-    net = HiddenTest(args, dataset).to(args.test_device)
+    dataset = Watermark(args.img_size, train=False, dev=False)
     loader = DataLoader(dataset=dataset, batch_size=args.batch_size, shuffle=False)
+    msg_dist = torch.distributions.Bernoulli(probs=0.5*torch.ones(args.msg_l))
+    
+    net = HiddenTest(args, dataset).to(args.test_device)
     
     while True:
         epoch_i, state_dict = queue.get()
         net.load_state_dict(state_dict)
-
+        
         stats = {
-            'D_loss': 0,
-            'G_loss': 0,
             'enc_loss': 0,
             'dec_loss': 0,
-            'adv_loss': 0
+            'accuracy0': 0,
+            'accuracy3': 0,
+            'avg_acc': 0,
+            'num_right_bits': 0,
+            'lab_dist_orig_noise': 0,
+            'lab_dist_noise_watermarked': 0
         }
 
         with torch.no_grad():
-            for img, msg in loader:
+            for img in loader:
+                msg = msg_dist.sample([img.shape[0]])
                 img, msg = img.to(args.test_device), msg.to(args.test_device)
-                batch_stats = net.stats(img, msg)
+                batch_stats = net.stats(img, msg, args.noise_type)
                 for k in stats:
                     stats[k] += len(img) * batch_stats[k]
 
@@ -66,30 +92,69 @@ def test_worker(args, queue):
         log_file.write("Epoch {} | {}\n".format(epoch_i,  " ".join([f"{k}: {v:.3f}"for k, v in stats.items()])))
         queue.task_done()
 
-def test(args):
-    dataset = Watermark(args.img_size, args.msg_l, train=False)
-    net = HiddenTest(args, dataset).to(args.test_device)
+def test_per_user(args):
+    dataset = Watermark(args.img_size, train=False, dev=False)
     loader = DataLoader(dataset=dataset, batch_size=args.batch_size, shuffle=False)
+    msg_dist = torch.distributions.Bernoulli(probs=0.5*torch.ones(args.msg_l))
+    list_msg = msg_dist.sample([args.n_users])
     
+    np.savetxt("./foo.csv", list_msg.numpy(), delimiter=",")
+    net = HiddenTest(args, dataset).to(args.device)
     net.load_state_dict(torch.load(path.save_path))
+    list_stats = []
+    with torch.no_grad():
+        for i, msg in tqdm(enumerate(list_msg)):
+            stats = {
+                'enc_loss': 0,
+                'dec_loss': 0,
+                'accuracy0': 0,
+                'accuracy3': 0,
+                'avg_acc': 0,
+                'num_right_bits': 0,
+                'lab_dist_orig_noise': 0,
+                'lab_dist_noise_watermarked': 0
+            }
+            for img in loader:
+                msg_batched = msg.repeat(img.shape[0], 1)
+                img, msg_batched = img.to(args.device), msg_batched.to(args.device)
+                batch_stats = net.stats(img, msg_batched, args.noise_type)
+                for k in stats:
+                    stats[k] += len(img) * batch_stats[k]
 
+            for k in stats:
+                stats[k] = stats[k] / len(dataset)
+            list_stats.append(stats)
+    pickle.dump( list_stats, open( "list_stats.p", "wb" ) )
+    
+    
+def test(args):
+    dataset = Watermark(args.img_size, train=False, dev=False)
+    loader = DataLoader(dataset=dataset, batch_size=args.batch_size, shuffle=False)
+    msg_dist = torch.distributions.Bernoulli(probs=0.5*torch.ones(args.msg_l))
+    
+    net = HiddenTest(args, dataset).to(args.device)
+    
+    net.load_state_dict(torch.load(path.save_path, map_location='cuda'))
+    
     stats = {
-        'D_loss': 0,
-        'G_loss': 0,
         'enc_loss': 0,
         'dec_loss': 0,
-        'adv_loss': 0
+        'accuracy0': 0,
+        'accuracy3': 0,
+        'avg_acc': 0,
+        'num_right_bits': 0,
+        'lab_dist_orig_noise': 0,
+        'lab_dist_noise_watermarked': 0
     }
 
     with torch.no_grad():
-        for img, msg in loader:
-            img, msg = img.to(args.test_device), msg.to(args.test_device)
-            batch_stats = net.stats(img, msg)
+        for img in loader:
+            msg = msg_dist.sample([img.shape[0]])
+            img, msg = img.to(args.device), msg.to(args.device)
+            batch_stats = net.stats(img, msg, args.noise_type)
             for k in stats:
                 stats[k] += len(img) * batch_stats[k]
 
     for k in stats:
         stats[k] = stats[k] / len(dataset)
-
-    print(" ".join([f"{k}: {v:.3f}"for k, v in stats.items()]))
-
+    print("Noise type: ", args.noise_type, " ".join([f"{k}: {v:.3f}"for k, v in stats.items()]))

@@ -20,10 +20,9 @@ class HiddenTest(Hidden):
     def stats(self, img, msg, noise_type):
         self.eval()
         encoded_img = self.encoder(img, msg)
-        print(encoded_img.shape)
-        noised_img = self.noiser(encoded_img)
+        noised_img, _ = self.noiser([encoded_img, img])
         decoded_msg = self.decoder(noised_img)
-
+        
         D_loss = self.D_loss(img, encoded_img)
 
         enc_loss = self.enc_loss(encoded_img, img)
@@ -36,11 +35,9 @@ class HiddenTest(Hidden):
         accuracy0 = (correct == msg.shape[1]).float().mean()
         accuracy3 = (correct > (msg.shape[1] - 3)).float().mean()
         if noise_type not in ["crop", "cropout", "resize"]:
-            lab_dist_orig_noise = np.mean([LAB_L2_dist(im, noised_img[i]) for i, im in enumerate(img)])
-            lab_dist_noise_watermarked = np.mean([LAB_L2_dist(im, encoded_img[i]) for i, im in enumerate(img)])
+            lab_dist_orig_watermarked = np.mean([LAB_L2_dist(im, encoded_img[i]) for i, im in enumerate(img)])
         else:
-            lab_dist_orig_noise = -1
-            lab_dist_noise_watermarked = -1
+            lab_dist_orig_watermarked = -1
         
         return {
             'enc_loss': enc_loss.item(),
@@ -49,8 +46,7 @@ class HiddenTest(Hidden):
             'accuracy3': accuracy3.item(),
             'avg_acc': (correct.float().mean() / msg.shape[1]).item(),
             'num_right_bits': correct.float().mean().item(),
-            'lab_dist_orig_noise': lab_dist_orig_noise,
-            'lab_dist_noise_watermarked': lab_dist_noise_watermarked
+            'lab_dist_orig_watermarked': lab_dist_orig_watermarked,
         }
         
 
@@ -74,8 +70,7 @@ def test_worker(args, queue):
             'accuracy3': 0,
             'avg_acc': 0,
             'num_right_bits': 0,
-            'lab_dist_orig_noise': 0,
-            'lab_dist_noise_watermarked': 0
+            'lab_dist_orig_watermarked': 0
         }
 
         with torch.no_grad():
@@ -111,8 +106,7 @@ def test_per_user(args):
                 'accuracy3': 0,
                 'avg_acc': 0,
                 'num_right_bits': 0,
-                'lab_dist_orig_noise': 0,
-                'lab_dist_noise_watermarked': 0
+                'lab_dist_orig_watermarked': 0,
             }
             for img in loader:
                 msg_batched = msg.repeat(img.shape[0], 1)
@@ -133,7 +127,7 @@ def test(args):
     msg_dist = torch.distributions.Bernoulli(probs=0.5*torch.ones(args.msg_l))
     
     net = HiddenTest(args, dataset).to(args.device)
-    
+    net.noiser.to(args.device)
     net.load_state_dict(torch.load(path.save_path, map_location='cuda'))
     
     stats = {
@@ -143,8 +137,7 @@ def test(args):
         'accuracy3': 0,
         'avg_acc': 0,
         'num_right_bits': 0,
-        'lab_dist_orig_noise': 0,
-        'lab_dist_noise_watermarked': 0
+        'lab_dist_orig_watermarked': 0
     }
 
     with torch.no_grad():

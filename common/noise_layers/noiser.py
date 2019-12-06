@@ -23,15 +23,15 @@ class Noiser(nn.Module):
             self.noise_layers.append(Resize((0.4, 0.6)))
             self.noise_layers.append(JpegCompression())
         elif noise_type == 'crop':
-            self.noise_layers.append(Crop((0.8, 0.9),(0.8, 0.9)))
+            self.noise_layers = [Crop((0.8, 0.9),(0.8, 0.9))]
         elif noise_type == 'cropout':
-            self.noise_layers.append(Cropout((0.8, 0.8),(0.8, 0.9)))
+            self.noise_layers = [Cropout((0.8, 0.8),(0.8, 0.9))]
         elif noise_type == 'dropout':
-            self.noise_layers.append(Dropout((0.25, 0.35)))
+            self.noise_layers = [Dropout((0.25, 0.35))]
         elif noise_type == 'resize':
-            self.noise_layers.append(Resize((0.8, 0.6)))
+            self.noise_layers = [Resize((0.8, 0.6))]
         elif noise_type == 'jpeg':
-            self.noise_layers.append(JpegCompression())
+            self.noise_layers = [JpegCompression()]
         else:
             raise NotImplementedError 
 
@@ -42,9 +42,6 @@ class Noiser(nn.Module):
         return super().to(device)
 
     def forward(self, encoded_and_cover):
-        encoded_and_cover = self.noise_layers[0](encoded_and_cover)
-        for layer in self.noise_layers:
-            encoded_and_cover = layer(encoded_and_cover)
-        #random_noise_layer = np.random.choice(self.noise_layers, 1)[0]
-        return encoded_and_cover
+        random_noise_layer = np.random.choice(self.noise_layers, 1)[0]
+        return random_noise_layer(encoded_and_cover)
 

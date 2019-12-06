@@ -19,7 +19,7 @@ class HiddenTrain(Hidden):
         self.train()
 
         encoded_img = self.encoder(img, msg)
-        noised_img = self.noiser(encoded_img)
+        noised_img, _ = self.noiser([encoded_img, img])
         decoded_msg = self.decoder(noised_img)
         
         stats = {}
@@ -66,14 +66,19 @@ def train(args):
     test_process, queue = start_test_process(args)
     log_file = open(log_filename, 'w+', buffering=1)
 
-    dataset = Watermark(args.img_size, args.msg_l, train=True)
+    dataset = Watermark(args.img_size, train=True, dev=False)
     net = HiddenTrain(args, dataset).to(args.device)
     loader = DataLoader(dataset=dataset, batch_size=args.batch_size, shuffle=True)
+    msg_dist = torch.distributions.Bernoulli(probs=0.5*torch.ones(args.msg_l))
+
 
     with trange(args.epochs, unit='epoch') as tqdm_bar:
         for epoch_i in tqdm_bar:
-            for batch_i, (img, msg) in enumerate(loader):
+            for batch_i, img in enumerate(loader):
+                img = img.to(args.device)
+                msg = msg_dist.sample([img.shape[0]])
                 img, msg = img.to(args.device), msg.to(args.device)
+
                 stats = net.optimize(img, msg)
                 tqdm_bar.set_postfix(**stats)
 

@@ -32,6 +32,7 @@ class Hidden(nn.Module):
 
     def to(self, device):
         self.device = device
+        self.noiser.to(device)
         return super().to(device)
 
     def D_loss(self, img, encoded_img):

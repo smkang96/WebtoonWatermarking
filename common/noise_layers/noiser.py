@@ -23,13 +23,13 @@ class Noiser(nn.Module):
             self.noise_layers.append(Resize((0.4, 0.6)))
             self.noise_layers.append(JpegCompression())
         elif noise_type == 'crop':
-            self.noise_layers.append(Crop((0.4, 0.55),(0.4, 0.55)))
+            self.noise_layers.append(Crop((0.8, 0.9),(0.8, 0.9)))
         elif noise_type == 'cropout':
-            self.noise_layers.append(Cropout((0.25, 0.35),(0.25, 0.35)))
+            self.noise_layers.append(Cropout((0.8, 0.8),(0.8, 0.9)))
         elif noise_type == 'dropout':
             self.noise_layers.append(Dropout((0.25, 0.35)))
         elif noise_type == 'resize':
-            self.noise_layers.append(Resize((0.4, 0.6)))
+            self.noise_layers.append(Resize((0.8, 0.6)))
         elif noise_type == 'jpeg':
             self.noise_layers.append(JpegCompression())
         else:

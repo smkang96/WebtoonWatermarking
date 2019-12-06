@@ -74,7 +74,7 @@ def save_img(args):
     
     net = DFW(args, dataset).to(args.device)
     net.set_depth(max_depth)
-    net.load_state_dict(torch.load(path.save_path))
+    net.load_state_dict(torch.load(path.save_path, map_location='cuda'))
     net.eval()
 
     hamming_coder = HammingCoder(device=args.device)

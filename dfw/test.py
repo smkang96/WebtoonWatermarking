@@ -28,7 +28,6 @@ class DFWTest(DFW):
         noised_img, _ = self.noiser([encoded_img, img])
         decoded_msg_logit = self.decoder(noised_img)
         
-        
         enc_loss = torch.norm(watermark, p=2, dim=(1, 2, 3)).mean()
         dec_loss = F.binary_cross_entropy_with_logits(decoded_msg_logit, hamming_msg)
         loss = self.enc_scale*enc_loss + self.dec_scale*dec_loss
@@ -40,9 +39,9 @@ class DFWTest(DFW):
         accuracy3 = (correct > (self.l - 3)).float().mean()
         num_right_bits_without_hamming = ((pred_without_hamming_dec == hamming_msg).sum(1)).float().mean()
         if noise_type not in ["crop", "cropout", "resize"]:
-            lab_dist = np.mean([LAB_L2_dist(im, noised_img[i]) for i, im in enumerate(img)])
+            lab_dist_orig_watermarked = np.mean([LAB_L2_dist(im, encoded_img[i]) for i, im in enumerate(img)])
         else:
-            lab_dist = 0
+            lab_dist_orig_watermarked = -1
         
         return {
             'loss': loss.item(),
@@ -53,7 +52,7 @@ class DFWTest(DFW):
             'num_right_bits_without_hamming': num_right_bits_without_hamming.item(),
             'avg_acc': (correct.float().mean() / self.l).item(),
             'num_right_bits': correct.float().mean().item(),
-            'lab_dist': lab_dist
+            'lab_dist_orig_watermarked': lab_dist_orig_watermarked,
         }
         
 
@@ -70,7 +69,7 @@ def test_worker(args, queue):
     while True:
         epoch_i, state_dict = queue.get()
         net.load_state_dict(state_dict)
-
+        
         stats = {
             'loss': 0,
             'enc_loss': 0,
@@ -80,7 +79,7 @@ def test_worker(args, queue):
             'num_right_bits_without_hamming': 0,
             'avg_acc': 0,
             'num_right_bits': 0,
-            'lab_dist': 0
+            'lab_dist_orig_watermarked': 0,
         }
 
         with torch.no_grad():
@@ -119,7 +118,7 @@ def test_per_user(args):
                 'num_right_bits_without_hamming': 0,
                 'avg_acc': 0,
                 'num_right_bits': 0,
-                'lab_dist': 0
+                'lab_dist_orig_watermarked': 0,
             }
             for img in loader:
                 msg_batched = msg.repeat(img.shape[0], 1)
@@ -143,7 +142,8 @@ def test(args):
     net = DFWTest(args, dataset).to(args.device)
     net.set_depth(max_depth)
     
-    net.load_state_dict(torch.load(path.save_path))
+    net.load_state_dict(torch.load(path.save_path, map_location='cuda'))
+    
     stats = {
         'loss': 0,
         'enc_loss': 0,
@@ -153,7 +153,7 @@ def test(args):
         'num_right_bits_without_hamming': 0,
         'avg_acc': 0,
         'num_right_bits': 0,
-        'lab_dist': 0
+        'lab_dist_orig_watermarked': 0,
     }
 
     with torch.no_grad():

@@ -3,7 +3,7 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
 from data.watermark import Watermark
-from net import Hidden
+from net import DFW, max_depth
 import common.path as path
 from utils import HammingCoder, LAB_L2_dist
 import numpy as np
@@ -13,38 +13,44 @@ from tqdm import tqdm
 log_filename = './test.log'
 
 
-class HiddenTest(Hidden):
+class DFWTest(DFW):
     def __init__(self, args, data):
         super().__init__(args, data)
+
+        self.enc_scale, self.dec_scale = args.enc_scale, args.dec_scale
+        self.hamming_coder = HammingCoder(device=args.device)
               
     def stats(self, img, msg, noise_type):
         self.eval()
-        encoded_img = self.encoder(img, msg)
+        hamming_msg = torch.stack([self.hamming_coder.encode(x) for x in msg])
+        watermark = self.encoder(hamming_msg)
+        encoded_img = (img + watermark).clamp(-1, 1)
         noised_img, _ = self.noiser([encoded_img, img])
-        decoded_msg = self.decoder(noised_img)
+        decoded_msg_logit = self.decoder(noised_img)
         
-        D_loss = self.D_loss(img, encoded_img)
-
-        enc_loss = self.enc_loss(encoded_img, img)
-        dec_loss = self.dec_loss(decoded_msg, msg)
-        adv_loss = self.adv_loss(encoded_img)
-        #G_loss = self.G_loss(enc_loss, dec_loss, adv_loss)
+        enc_loss = torch.norm(watermark, p=2, dim=(1, 2, 3)).mean()
+        dec_loss = F.binary_cross_entropy_with_logits(decoded_msg_logit, hamming_msg)
+        loss = self.enc_scale*enc_loss + self.dec_scale*dec_loss
         
-        pred_msg = (torch.sigmoid(decoded_msg) > 0.5).int()
+        pred_without_hamming_dec = (torch.sigmoid(decoded_msg_logit) > 0.5).int()
+        pred_msg = torch.stack([self.hamming_coder.decode(x) for x in pred_without_hamming_dec])
         correct = (pred_msg == msg).sum(1)
-        accuracy0 = (correct == msg.shape[1]).float().mean()
-        accuracy3 = (correct > (msg.shape[1] - 3)).float().mean()
+        accuracy0 = (correct == self.l).float().mean()
+        accuracy3 = (correct > (self.l - 3)).float().mean()
+        num_right_bits_without_hamming = ((pred_without_hamming_dec == hamming_msg).sum(1)).float().mean()
         if noise_type not in ["crop", "cropout", "resize"]:
             lab_dist_orig_watermarked = np.mean([LAB_L2_dist(im, encoded_img[i]) for i, im in enumerate(img)])
         else:
             lab_dist_orig_watermarked = -1
         
         return {
+            'loss': loss.item(),
             'enc_loss': enc_loss.item(),
             'dec_loss': dec_loss.item(),
             'accuracy0': accuracy0.item(),
             'accuracy3': accuracy3.item(),
-            'avg_acc': (correct.float().mean() / msg.shape[1]).item(),
+            'num_right_bits_without_hamming': num_right_bits_without_hamming.item(),
+            'avg_acc': (correct.float().mean() / self.l).item(),
             'num_right_bits': correct.float().mean().item(),
             'lab_dist_orig_watermarked': lab_dist_orig_watermarked,
         }
@@ -57,20 +63,23 @@ def test_worker(args, queue):
     loader = DataLoader(dataset=dataset, batch_size=args.batch_size, shuffle=False)
     msg_dist = torch.distributions.Bernoulli(probs=0.5*torch.ones(args.msg_l))
     
-    net = HiddenTest(args, dataset).to(args.test_device)
+    net = DFWTest(args, dataset).to(args.test_device)
+    net.set_depth(max_depth)
     
     while True:
         epoch_i, state_dict = queue.get()
         net.load_state_dict(state_dict)
         
         stats = {
+            'loss': 0,
             'enc_loss': 0,
             'dec_loss': 0,
             'accuracy0': 0,
             'accuracy3': 0,
+            'num_right_bits_without_hamming': 0,
             'avg_acc': 0,
             'num_right_bits': 0,
-            'lab_dist_orig_watermarked': 0
+            'lab_dist_orig_watermarked': 0,
         }
 
         with torch.no_grad():
@@ -94,16 +103,19 @@ def test_per_user(args):
     list_msg = msg_dist.sample([args.n_users])
     
     np.savetxt("./foo.csv", list_msg.numpy(), delimiter=",")
-    net = HiddenTest(args, dataset).to(args.device)
+    net = DFWTest(args, dataset).to(args.device)
+    net.set_depth(max_depth)
     net.load_state_dict(torch.load(path.save_path))
     list_stats = []
     with torch.no_grad():
         for i, msg in tqdm(enumerate(list_msg)):
             stats = {
+                'loss': 0,
                 'enc_loss': 0,
                 'dec_loss': 0,
                 'accuracy0': 0,
                 'accuracy3': 0,
+                'num_right_bits_without_hamming': 0,
                 'avg_acc': 0,
                 'num_right_bits': 0,
                 'lab_dist_orig_watermarked': 0,
@@ -118,6 +130,7 @@ def test_per_user(args):
             for k in stats:
                 stats[k] = stats[k] / len(dataset)
             list_stats.append(stats)
+            #print("User", i, "Noise type:", args.noise_type, " ".join([f"{k}: {v:.3f}"for k, v in stats.items()]))
     pickle.dump( list_stats, open( "list_stats.p", "wb" ) )
     
     
@@ -126,18 +139,21 @@ def test(args):
     loader = DataLoader(dataset=dataset, batch_size=args.batch_size, shuffle=False)
     msg_dist = torch.distributions.Bernoulli(probs=0.5*torch.ones(args.msg_l))
     
-    net = HiddenTest(args, dataset).to(args.device)
-    net.noiser.to(args.device)
+    net = DFWTest(args, dataset).to(args.device)
+    net.set_depth(max_depth)
+    
     net.load_state_dict(torch.load(path.save_path, map_location='cuda'))
     
     stats = {
+        'loss': 0,
         'enc_loss': 0,
         'dec_loss': 0,
         'accuracy0': 0,
         'accuracy3': 0,
+        'num_right_bits_without_hamming': 0,
         'avg_acc': 0,
         'num_right_bits': 0,
-        'lab_dist_orig_watermarked': 0
+        'lab_dist_orig_watermarked': 0,
     }
 
     with torch.no_grad():

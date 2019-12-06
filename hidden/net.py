@@ -22,9 +22,9 @@ class Hidden(nn.Module):
         if args.mode in ['train', 'test']:
             self.enc_scale, self.dec_scale, self.adv_scale = args.enc_scale, args.dec_scale, args.adv_scale
 
-        self.encoder = Encoder(data.w, data.h, data.l)
+        self.encoder = Encoder(data.w, data.h, args.msg_l)
         self.noiser = Noiser(args.noise_type)
-        self.decoder = Decoder(data.l)
+        self.decoder = Decoder(args.msg_l)
         self.D = Discriminator()
 
         self.D_optim = torch.optim.Adam(self.D.parameters())

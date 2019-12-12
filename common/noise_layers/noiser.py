@@ -1,7 +1,11 @@
 import numpy as np
 import torch.nn as nn
 from . import Identity, Crop, Cropout, Dropout, Resize, JpegCompression, Quantization
+import random
+SEED = 1234
 
+random.seed(SEED)
+np.random.seed(SEED)
 
 class Noiser(nn.Module):
     """
@@ -17,11 +21,11 @@ class Noiser(nn.Module):
         if noise_type == 'no_noise':
             pass
         elif noise_type == 'combined':
-            self.noise_layers.append(Crop((0.4, 0.55),(0.4, 0.55)))
-            self.noise_layers.append(Cropout((0.25, 0.35),(0.25, 0.35)))
-            self.noise_layers.append(Dropout((0.25, 0.35)))
-            self.noise_layers.append(Resize((0.4, 0.6)))
-            self.noise_layers.append(JpegCompression())
+            if random.random() >= 0.2: #in 20% of teh cases, use no noise
+                self.noise_layers.append(Dropout((0.25, 0.35)))
+                self.noise_layers.append(Resize((0.4, 0.6)))
+                self.noise_layers.append(JpegCompression())
+                self.noise_layers.append(Crop((0.8, 0.9),(0.8, 0.9)))
         elif noise_type == 'crop':
             self.noise_layers.append(Crop((0.8, 0.9),(0.8, 0.9)))
         elif noise_type == 'cropout':

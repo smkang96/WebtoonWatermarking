@@ -12,6 +12,14 @@ from data.watermark import Watermark
 from net import DFW, pretrain_depth, max_depth
 import common.path as path
 from test import test_worker
+import random
+SEED = 1234
+
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+torch.cuda.manual_seed(SEED)
+torch.backends.cudnn.deterministic = True
 
 log_filename = './train.log'
 pretrain_filename = './pretrain.pt'

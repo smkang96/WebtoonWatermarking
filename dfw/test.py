@@ -9,6 +9,14 @@ from utils import HammingCoder, LAB_L2_dist
 import numpy as np
 import pickle
 from tqdm import tqdm
+import random
+SEED = 1234
+
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+torch.cuda.manual_seed(SEED)
+torch.backends.cudnn.deterministic = True
 
 log_filename = './test.log'
 

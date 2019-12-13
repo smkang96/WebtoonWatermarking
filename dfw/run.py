@@ -31,6 +31,7 @@ for mode, subparser in subparsers.items():
     subparser.add_argument('--device', type=int)
     subparser.add_argument('--test_device', type=int)
     subparser.add_argument('--noise_type', type=str)
+    subparser.add_argument('--amount_noise', type=float, default=0.0)
 
     if 'train' == mode:
         subparser.add_argument('--epochs', type=int)

@@ -23,7 +23,7 @@ class DFW(nn.Module):
 
         self.l = args.msg_l
         self.encoder = Encoder(args.img_size, 31)
-        self.noiser = Noiser(args.noise_type)
+        self.noiser = Noiser(args.noise_type, args.amount_noise)
         self.decoder = Decoder(31)
 
         self.set_depth(max_depth)
